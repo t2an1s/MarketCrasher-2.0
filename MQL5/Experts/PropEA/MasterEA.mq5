@@ -12,7 +12,10 @@
 #include <Trade/Trade.mqh>
 #include <Files/File.mqh>
 #include <Dashboard.mqh>
+
 #include <Synergy.mqh>
+
+
 
 CTrade      trade;
 
@@ -22,6 +25,7 @@ input double   FixedLot       = 1.0;   // fixed lot size when RiskPercent=0
 input bool     UseRiskPercent = true;  // use risk percent or fixed lot
 input double   HedgeFactor    = 1.0;   // hedge lot multiplier
 input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
+
 
 //--- synergy settings
 input bool     UseSynergyScore = true;   // enable synergy filter
@@ -37,13 +41,16 @@ input double   WeightH1        = 1.0;    // weight for 1h
 
 
 
+
 //--- global variables
 bool hasPosition=false;
 double lastLots=0.0;
 double lastSL=0.0;
 double lastTP=0.0;
+
 double synergyScore=0.0;
 datetime lastBarTime=0;
+
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -99,6 +106,7 @@ void SendHedgeSignal(string direction,double lots,double sl,double tp)
 //+------------------------------------------------------------------+
 void OnTick()
   {
+
   //--- update dashboard
   DashboardOnTick(synergyScore);
 
@@ -125,6 +133,7 @@ void OnTick()
      longCondition=longCondition && synergyScore>0.0;
      shortCondition=shortCondition && synergyScore<0.0;
     }
+
 
    if(!hasPosition)
      {

@@ -8,6 +8,7 @@ Two EAs are provided:
 - **SlaveEA** – reads hedge instructions from file and opens opposite trades on a hedge account.
 
 A dashboard implementation is available in `MQL5/Include/Dashboard.mqh`.
+
 Synergy score logic from the TradingView script is implemented in
 `MQL5/Include/Synergy.mqh` and used by the MasterEA to filter trades.
 

@@ -7,7 +7,9 @@ class CDashboard
 private:
    long   chart_id;
    int    y;
+
    string synergy_name;
+
 public:
    void Init()
      {
@@ -19,6 +21,7 @@ public:
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_YDISTANCE,10);
       ObjectSetString(chart_id,"dash_bg",OBJPROP_TEXT,"MarketCrasher Dashboard");
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_FONTSIZE,12);
+
       synergy_name="synergy";
       ObjectCreate(chart_id,synergy_name,OBJ_LABEL,0,0,0);
       ObjectSetInteger(chart_id,synergy_name,OBJPROP_CORNER,0);
@@ -44,6 +47,7 @@ void DashboardInit()
   {
    dashboard.Init();
   }
+
 
 void DashboardOnTick(double score=0.0)
   {
