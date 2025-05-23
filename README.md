@@ -9,8 +9,19 @@ Two EAs are provided:
 
 A dashboard implementation is available in `MQL5/Include/Dashboard.mqh`.
 
+
 The Master EA now includes optional **scale-out** logic allowing partial profit
 taking and breakeven management.
+
+Pivot calculations for stop loss and take profit are implemented in
+`MQL5/Include/Pivot.mqh`. The EA can optionally draw a zigzag line showing
+recent pivot highs and lows on the chart.
+
+Additional modules provide the multi-timeframe synergy score, market bias
+oscillator and ADX filter used by the strategy.
+
+Synergy score logic from the TradingView script is implemented in
+`MQL5/Include/Synergy.mqh` and used by the MasterEA to filter trades.
 
 ## Usage
 1. Place the files inside your terminal's `MQL5` directory preserving the folder structure.
