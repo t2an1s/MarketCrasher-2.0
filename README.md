@@ -9,6 +9,9 @@ Two EAs are provided:
 
 A dashboard implementation is available in `MQL5/Include/Dashboard.mqh`.
 
+Synergy score logic from the TradingView script is implemented in
+`MQL5/Include/Synergy.mqh` and used by the MasterEA to filter trades.
+
 ## Usage
 1. Place the files inside your terminal's `MQL5` directory preserving the folder structure.
 2. Compile `MQL5/Experts/PropEA/MasterEA.mq5` and `MQL5/Experts/PropEA/SlaveEA.mq5` in MetaEditor.

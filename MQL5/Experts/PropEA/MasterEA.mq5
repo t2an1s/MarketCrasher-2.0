@@ -13,6 +13,10 @@
 #include <Files/File.mqh>
 #include <Dashboard.mqh>
 
+#include <Synergy.mqh>
+
+
+
 CTrade      trade;
 
 //--- input parameters
@@ -23,12 +27,30 @@ input double   HedgeFactor    = 1.0;   // hedge lot multiplier
 input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
 
 
+//--- synergy settings
+input bool     UseSynergyScore = true;   // enable synergy filter
+input double   RsiWeight       = 1.0;    // RSI contribution
+input double   TrendWeight     = 1.0;    // MA trend contribution
+input double   MacdSlopeWeight = 1.0;    // MACD slope contribution
+input bool     UseTF5M         = true;   // use 5 minute timeframe
+input double   WeightM5        = 1.0;    // weight for 5m
+input bool     UseTF15M        = true;   // use 15 minute timeframe
+input double   WeightM15       = 1.0;    // weight for 15m
+input bool     UseTF1H         = true;   // use 1 hour timeframe
+input double   WeightH1        = 1.0;    // weight for 1h
+
+
+
 
 //--- global variables
 bool hasPosition=false;
 double lastLots=0.0;
 double lastSL=0.0;
 double lastTP=0.0;
+
+double synergyScore=0.0;
+datetime lastBarTime=0;
+
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -84,17 +106,34 @@ void SendHedgeSignal(string direction,double lots,double sl,double tp)
 //+------------------------------------------------------------------+
 void OnTick()
   {
-   //--- update dashboard
-   DashboardOnTick();
 
-   //--- check if we have an open position
-   hasPosition=(PositionSelect(_Symbol));
+  //--- update dashboard
+  DashboardOnTick(synergyScore);
 
-   //--- compute signals
-   double fast=iMA(_Symbol,_Period,50,0,MODE_EMA,PRICE_CLOSE,0);
-   double slow=iMA(_Symbol,_Period,200,0,MODE_EMA,PRICE_CLOSE,0);
-   bool longCondition=(fast>slow);
-   bool shortCondition=(fast<slow);
+  //--- calculate synergy score on new bar
+  datetime curBar=iTime(_Symbol,_Period,0);
+  if(curBar!=lastBarTime)
+    {
+     synergyScore=CalcSynergyScore(UseTF5M,UseTF15M,UseTF1H,
+                                   WeightM5,WeightM15,WeightH1,
+                                   RsiWeight,TrendWeight,MacdSlopeWeight);
+     lastBarTime=curBar;
+    }
+
+  //--- check if we have an open position
+  hasPosition=(PositionSelect(_Symbol));
+
+  //--- compute signals
+  double fast=iMA(_Symbol,_Period,50,0,MODE_EMA,PRICE_CLOSE,0);
+  double slow=iMA(_Symbol,_Period,200,0,MODE_EMA,PRICE_CLOSE,0);
+  bool longCondition=(fast>slow);
+  bool shortCondition=(fast<slow);
+  if(UseSynergyScore)
+    {
+     longCondition=longCondition && synergyScore>0.0;
+     shortCondition=shortCondition && synergyScore<0.0;
+    }
+
 
    if(!hasPosition)
      {

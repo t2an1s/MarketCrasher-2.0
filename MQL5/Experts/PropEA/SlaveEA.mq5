@@ -66,7 +66,9 @@ void CheckSignals()
 
 void OnTick()
   {
-   DashboardOnTick();
+
+  DashboardOnTick(0.0);
+
    CheckSignals();
   }
 //+------------------------------------------------------------------+
