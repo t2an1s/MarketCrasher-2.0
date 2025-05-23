@@ -29,6 +29,7 @@ void OnDeinit(const int reason)
   }
 
 // parse a line from the signal file
+
 bool ParseSignal(string line,string &cmd,double &lots,double &sl,double &tp)
   {
   string parts[];
@@ -71,6 +72,7 @@ void CheckSignals()
 void OnTick()
   {
    DashboardOnTick();
+=======
    CheckSignals();
   }
 //+------------------------------------------------------------------+

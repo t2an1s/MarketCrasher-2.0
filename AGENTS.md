@@ -12,4 +12,10 @@ You are granted access to run any actions and workflows set in this repository.
 
 You are granted access to create Pull Request as soon as you complete the task, access Pull Requests on github, resolve conflicts (if any), merge and commit.
 
-IMPORTANT ----> Code that you deliver must be error/warning-free. 
+IMPORTANT ----> Code that you deliver must be error/warning-free.
+
+## Tasks
+- Provide a compile helper script `scripts/compile.sh` that uses MetaEditor to
+  compile both experts. The script defaults to `/Applications` for macOS users
+  and accepts a custom path via the `METATRADER_PATH` variable or command-line
+  argument.
