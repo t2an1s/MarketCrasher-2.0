@@ -18,7 +18,6 @@
 #include <MarketBias.mqh>
 #include <ADXFilter.mqh>
 
-
 CTrade      trade;
 
 //--- input parameters
@@ -28,11 +27,18 @@ input bool     UseRiskPercent = true;  // use risk percent or fixed lot
 input double   HedgeFactor    = 1.0;   // hedge lot multiplier
 input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
 
+// scale-out and breakeven settings
+input bool     EnableScaleOut = true;    // enable partial profit taking
+input double   ScaleOutPct    = 50;      // percent of distance to TP for scale-out
+input double   ScaleOutSize   = 50;      // percent of position to close
+input bool     ScaleOutBE     = true;    // set breakeven after scale-out
+input bool     EnableBreakEven = false;  // enable breakeven without scale-out
+input double   BreakEvenTrigger = 100;   // profit in points to trigger breakeven
+
 input int      PivotLookback  = 50;    // lookback bars for pivot SL/TP
 input int      PivotLeft      = 6;     // pivot length left
 input int      PivotRight     = 6;     // pivot length right
 input bool     DrawZigZag     = true;  // show zigzag lines
-
 
 // Synergy inputs
 input bool   UseSynergyScore = true;
@@ -61,15 +67,21 @@ input int    ADXLookback       = 20;
 input double ADXMultiplier     = 0.8;
 input double ADXMinThreshold   = 15.0;
 
+
 //--- global variables
 bool hasPosition=false;
 double lastLots=0.0;
 double lastSL=0.0;
 double lastTP=0.0;
+
+bool  scaleOutDone=false;
+bool  breakEvenDone=false;
+
 datetime lastBarTime=0;
 PivotZigZag zz;
 double synergyScore=0.0;
 datetime lastBarTime=0;
+
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -156,6 +168,11 @@ void OnTick()
 
    if(!hasPosition)
      {
+
+      //--- open position if condition met
+      double sl,tp;
+      if(longCondition)
+        {
       //--- open position if condition met using pivot-based SL/TP
       double sl,tp;
       if(longCondition)
@@ -232,12 +249,14 @@ void OnTick()
       double sl,tp;  
       if(longCondition)
         {
+
          sl=SymbolInfoDouble(_Symbol,SYMBOL_BID)-100*_Point;
          tp=SymbolInfoDouble(_Symbol,SYMBOL_BID)+200*_Point;
          double lots=CalcLots(100);
          if(trade.Buy(lots,_Symbol,0,sl,tp))
            {
             lastLots=lots; lastSL=sl; lastTP=tp;
+
             SendHedgeSignal("SELL",lots*HedgeFactor,sl,tp);
 
            }
@@ -258,19 +277,73 @@ void OnTick()
                SendHedgeSignal("BUY",lots*HedgeFactor,sl,tp);
               }
 
+
          sl=SymbolInfoDouble(_Symbol,SYMBOL_ASK)+100*_Point;
          tp=SymbolInfoDouble(_Symbol,SYMBOL_ASK)-200*_Point;
          double lots=CalcLots(100);
          if(trade.Sell(lots,_Symbol,0,sl,tp))
            {
             lastLots=lots; lastSL=sl; lastTP=tp;
+
+            scaleOutDone=false;
+            breakEvenDone=false;
             SendHedgeSignal("BUY",lots*HedgeFactor,sl,tp);
+
+
 
            }
         }
      }
    else
      {
+
+     ulong ticket=PositionGetTicket(0);
+     int type=PositionGetInteger(POSITION_TYPE);
+     double entry=PositionGetDouble(POSITION_PRICE_OPEN);
+     double volume=PositionGetDouble(POSITION_VOLUME);
+     double bid=SymbolInfoDouble(_Symbol,SYMBOL_BID);
+     double ask=SymbolInfoDouble(_Symbol,SYMBOL_ASK);
+     double profit_in_points=(type==POSITION_TYPE_BUY)? (bid-entry)/_Point : (entry-ask)/_Point;
+
+     //--- scale-out logic
+     if(EnableScaleOut && !scaleOutDone)
+       {
+        double scalePrice=entry;
+        if(type==POSITION_TYPE_BUY)
+           scalePrice=entry + (lastTP-entry)*ScaleOutPct/100.0;
+        else
+           scalePrice=entry - (entry-lastTP)*ScaleOutPct/100.0;
+
+        if((type==POSITION_TYPE_BUY && bid>=scalePrice) ||
+           (type==POSITION_TYPE_SELL && ask<=scalePrice))
+          {
+           double closeLots=NormalizeDouble(volume*(ScaleOutSize/100.0),2);
+           if(closeLots>0.0 && trade.PositionClosePartial(ticket,closeLots))
+             {
+              scaleOutDone=true;
+              lastLots-=closeLots;
+              SendHedgeSignal("SO",closeLots,0,0);
+
+              if(ScaleOutBE && !breakEvenDone)
+                {
+                 trade.PositionModify(ticket,entry,lastTP);
+                 lastSL=entry;
+                 breakEvenDone=true;
+                }
+             }
+          }
+       }
+
+     //--- breakeven logic
+     if(EnableBreakEven && !breakEvenDone && profit_in_points>=BreakEvenTrigger)
+       {
+        if(trade.PositionModify(ticket,entry,lastTP))
+          {
+           lastSL=entry;
+           breakEvenDone=true;
+          }
+       }
+
       //--- manage trailing stop to breakeven
       ulong ticket=PositionGetTicket(0);
       double entry=PositionGetDouble(POSITION_PRICE_OPEN);
@@ -287,6 +360,7 @@ void OnTick()
             SendHedgeSignal("ADJ",lastLots,newSL,lastTP);
            }
         }
+
      }
   }
 

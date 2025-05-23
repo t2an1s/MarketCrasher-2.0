@@ -7,17 +7,19 @@ class CDashboard
 private:
    long   chart_id;
 
-   int    y;
+int    y;
 
    double synergy_val;
    string bias_txt;
    
+
 public:
    void Init()
      {
       chart_id=ChartID();
 
       y=20;
+
 
       ObjectCreate(chart_id,"dash_bg",OBJ_LABEL,0,0,0);
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_CORNER,0);
@@ -30,8 +32,6 @@ public:
    void Update()
      {
       // additional stats can be drawn here
-
-
      }
    void SetSynergy(double val)
      {
@@ -76,7 +76,6 @@ void DashboardInit()
   {
    dashboard.Init();
   }
-
 
 void DashboardOnTick()
   {
