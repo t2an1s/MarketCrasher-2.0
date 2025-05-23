@@ -9,6 +9,10 @@ Two EAs are provided:
 
 A dashboard implementation is available in `MQL5/Include/Dashboard.mqh`.
 
+
+The Master EA now includes optional **scale-out** logic allowing partial profit
+taking and breakeven management.
+
 Pivot calculations for stop loss and take profit are implemented in
 `MQL5/Include/Pivot.mqh`. The EA can optionally draw a zigzag line showing
 recent pivot highs and lows on the chart.
