@@ -12,4 +12,9 @@ You are granted access to run any actions and workflows set in this repository.
 
 You are granted access to create Pull Request as soon as you complete the task, access Pull Requests on github, resolve conflicts (if any), merge and commit.
 
-IMPORTANT ----> Code that you deliver must be error/warning-free. 
+IMPORTANT ----> Code that you deliver must be error/warning-free.
+
+## Tasks
+
+
+- Compile the EAs using `scripts/compile.sh`. Provide the MetaTrader installation path via the `METATRADER_PATH` environment variable or as a command-line argument. If omitted, the script assumes `/Applications`.
