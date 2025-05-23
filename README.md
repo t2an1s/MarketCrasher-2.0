@@ -10,6 +10,10 @@ Two EAs are provided:
 A dashboard implementation is available in `MQL5/Include/Dashboard.mqh`.
 
 
+The Master EA also supports optional trading sessions, a Heikin-Ashi market
+bias filter and an ADX trend filter. Adjust these inputs to mirror the
+TradingView strategy.
+
 ## Usage
 1. Place the files inside your terminal's `MQL5` directory preserving the folder structure.
 2. Compile `MQL5/Experts/PropEA/MasterEA.mq5` and `MQL5/Experts/PropEA/SlaveEA.mq5` in MetaEditor.

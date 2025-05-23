@@ -60,8 +60,11 @@ void CheckSignals()
          else if(dir=="SELL" && !PositionSelect(_Symbol))
             trade.Sell(lots,_Symbol,0,sl,tp);
 
+=======
+
          else if(dir=="SO" && PositionSelect(_Symbol))
             trade.PositionClosePartial(PositionGetTicket(0),lots);
+
 
         }
      }
@@ -72,7 +75,6 @@ void OnTick()
   {
 
    DashboardOnTick();
-
    CheckSignals();
   }
 //+------------------------------------------------------------------+

@@ -9,9 +9,6 @@ private:
 
    int    y;
 
-
-int    y;
-
    double synergy_val;
    string bias_txt;
    
@@ -25,9 +22,6 @@ public:
       y=20;
 
 
-      y=20;
-
-
 
       ObjectCreate(chart_id,"dash_bg",OBJ_LABEL,0,0,0);
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_CORNER,0);
@@ -35,7 +29,6 @@ public:
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_YDISTANCE,10);
       ObjectSetString(chart_id,"dash_bg",OBJPROP_TEXT,"MarketCrasher Dashboard");
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_FONTSIZE,12);
-
      }
    void Update()
      {
@@ -90,8 +83,12 @@ void DashboardOnTick()
   {
    dashboard.Update();
 
+  }
+
 
 void DashboardShutdown()
   {
    dashboard.Shutdown();
   }
+
+//+------------------------------------------------------------------+
