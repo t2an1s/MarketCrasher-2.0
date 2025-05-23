@@ -7,6 +7,8 @@ class CDashboard
 private:
    long   chart_id;
 
+   int    y;
+
    double synergy_val;
    string bias_txt;
    
@@ -23,6 +25,12 @@ public:
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_YDISTANCE,10);
       ObjectSetString(chart_id,"dash_bg",OBJPROP_TEXT,"MarketCrasher Dashboard");
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_FONTSIZE,12);
+
+     }
+   void Update()
+     {
+      // additional stats can be drawn here
+
 
      }
    void SetSynergy(double val)
@@ -51,12 +59,14 @@ public:
    void Update()
      {
       // additional stats could be placed here
+
      }
    void Shutdown()
      {
       ObjectDelete(chart_id,"dash_bg");
       ObjectDelete(chart_id,"syn_label");
       ObjectDelete(chart_id,"bias_label");
+
      }
   };
 

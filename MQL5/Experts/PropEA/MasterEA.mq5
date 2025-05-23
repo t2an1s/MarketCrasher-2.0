@@ -11,11 +11,13 @@
 
 #include <Trade/Trade.mqh>
 #include <Files/File.mqh>
-#include <Dashboard.mqh>
 
+#include <Dashboard.mqh>
+#include <Pivot.mqh>
 #include <Synergy.mqh>
 #include <MarketBias.mqh>
 #include <ADXFilter.mqh>
+
 
 CTrade      trade;
 
@@ -25,6 +27,11 @@ input double   FixedLot       = 1.0;   // fixed lot size when RiskPercent=0
 input bool     UseRiskPercent = true;  // use risk percent or fixed lot
 input double   HedgeFactor    = 1.0;   // hedge lot multiplier
 input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
+
+input int      PivotLookback  = 50;    // lookback bars for pivot SL/TP
+input int      PivotLeft      = 6;     // pivot length left
+input int      PivotRight     = 6;     // pivot length right
+input bool     DrawZigZag     = true;  // show zigzag lines
 
 
 // Synergy inputs
@@ -59,10 +66,10 @@ bool hasPosition=false;
 double lastLots=0.0;
 double lastSL=0.0;
 double lastTP=0.0;
-
+datetime lastBarTime=0;
+PivotZigZag zz;
 double synergyScore=0.0;
 datetime lastBarTime=0;
-
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -70,6 +77,9 @@ datetime lastBarTime=0;
 int OnInit()
   {
    DashboardInit();
+
+   zz.Init(DrawZigZag);
+   
    return(INIT_SUCCEEDED);
   }
 
@@ -121,6 +131,47 @@ void OnTick()
 
    //--- update dashboard
    DashboardOnTick();
+
+   //--- detect new bar for zigzag drawing
+   datetime currentBar=Time[0];
+   if(currentBar!=lastBarTime)
+     {
+      lastBarTime=currentBar;
+      double ph=IsPivotHigh(PivotRight,PivotLeft,PivotRight)?High[PivotRight]:EMPTY_VALUE;
+      if(ph!=EMPTY_VALUE)
+         zz.AddPoint(Time[PivotRight],ph);
+      double pl=IsPivotLow(PivotRight,PivotLeft,PivotRight)?Low[PivotRight]:EMPTY_VALUE;
+      if(pl!=EMPTY_VALUE)
+         zz.AddPoint(Time[PivotRight],pl);
+     }
+
+   //--- check if we have an open position
+   hasPosition=(PositionSelect(_Symbol));
+
+   //--- compute signals
+   double fast=iMA(_Symbol,_Period,50,0,MODE_EMA,PRICE_CLOSE,0);
+   double slow=iMA(_Symbol,_Period,200,0,MODE_EMA,PRICE_CLOSE,0);
+   bool longCondition=(fast>slow);
+   bool shortCondition=(fast<slow);
+
+   if(!hasPosition)
+     {
+      //--- open position if condition met using pivot-based SL/TP
+      double sl,tp;
+      if(longCondition)
+        {
+         sl=FindDeepestPivotLowBelowClose(PivotLookback,PivotLeft,PivotRight);
+         tp=FindHighestPivotHighAboveClose(PivotLookback,PivotLeft,PivotRight);
+         if(sl!=EMPTY_VALUE && tp!=EMPTY_VALUE)
+           {
+            double entry=SymbolInfoDouble(_Symbol,SYMBOL_ASK);
+            double sl_points=(entry-sl)/_Point;
+            double lots=CalcLots(sl_points);
+            if(trade.Buy(lots,_Symbol,0,sl,tp))
+              {
+               lastLots=lots; lastSL=sl; lastTP=tp;
+               SendHedgeSignal("SELL",lots*HedgeFactor,sl,tp);
+              }
 
    //--- check if we have an open position
    hasPosition=(PositionSelect(_Symbol));
@@ -188,10 +239,25 @@ void OnTick()
            {
             lastLots=lots; lastSL=sl; lastTP=tp;
             SendHedgeSignal("SELL",lots*HedgeFactor,sl,tp);
+
            }
         }
       else if(shortCondition)
         {
+
+         sl=FindHighestPivotHighAboveClose(PivotLookback,PivotLeft,PivotRight);
+         tp=FindDeepestPivotLowBelowClose(PivotLookback,PivotLeft,PivotRight);
+         if(sl!=EMPTY_VALUE && tp!=EMPTY_VALUE)
+           {
+            double entry=SymbolInfoDouble(_Symbol,SYMBOL_BID);
+            double sl_points=(sl-entry)/_Point;
+            double lots=CalcLots(sl_points);
+            if(trade.Sell(lots,_Symbol,0,sl,tp))
+              {
+               lastLots=lots; lastSL=sl; lastTP=tp;
+               SendHedgeSignal("BUY",lots*HedgeFactor,sl,tp);
+              }
+
          sl=SymbolInfoDouble(_Symbol,SYMBOL_ASK)+100*_Point;
          tp=SymbolInfoDouble(_Symbol,SYMBOL_ASK)-200*_Point;
          double lots=CalcLots(100);
@@ -199,6 +265,7 @@ void OnTick()
            {
             lastLots=lots; lastSL=sl; lastTP=tp;
             SendHedgeSignal("BUY",lots*HedgeFactor,sl,tp);
+
            }
         }
      }
