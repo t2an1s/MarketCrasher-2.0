@@ -10,6 +10,20 @@ Two EAs are provided:
 A dashboard implementation is available in `MQL5/Include/Dashboard.mqh`.
 
 
+## Usage
+1. Place the files inside your terminal's `MQL5` directory preserving the folder structure.
+2. Compile `MQL5/Experts/PropEA/MasterEA.mq5` and `MQL5/Experts/PropEA/SlaveEA.mq5` in MetaEditor.
+3. Attach `MasterEA` to the prop account chart and `SlaveEA` to the hedge account chart.
+
+Adjust the input parameters of both EAs to match your desired risk and strategy settings.
+
+The master EA provides optional breakeven management via the following inputs:
+
+- `UseBreakEven` – enable or disable the breakeven move.
+- `BETriggerPts` – profit in points required before the stop is moved to entry.
+- `BEOffsetPts` – additional points beyond entry for the new stop.
+
+
 The Master EA now includes optional **scale-out** logic allowing partial profit
 taking and breakeven management.
 
@@ -38,3 +52,4 @@ Synergy score logic from the TradingView script is implemented in
 3. Attach `MasterEA` to the prop account chart and `SlaveEA` to the hedge account chart.
 
 Adjust the input parameters of both EAs to match your desired risk and strategy settings.
+

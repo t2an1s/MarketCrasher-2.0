@@ -62,6 +62,7 @@ void CheckSignals()
 
          else if(dir=="SO" && PositionSelect(_Symbol))
             trade.PositionClosePartial(PositionGetTicket(0),lots);
+
         }
      }
    FileClose(file);

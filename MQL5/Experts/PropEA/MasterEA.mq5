@@ -12,11 +12,13 @@
 #include <Trade/Trade.mqh>
 #include <Files/File.mqh>
 
+
 #include <Dashboard.mqh>
 #include <Pivot.mqh>
 #include <Synergy.mqh>
 #include <MarketBias.mqh>
 #include <ADXFilter.mqh>
+
 
 CTrade      trade;
 
@@ -26,6 +28,10 @@ input double   FixedLot       = 1.0;   // fixed lot size when RiskPercent=0
 input bool     UseRiskPercent = true;  // use risk percent or fixed lot
 input double   HedgeFactor    = 1.0;   // hedge lot multiplier
 input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
+
+input bool     UseBreakEven   = true;  // enable breakeven management
+input double   BETriggerPts   = 100;   // profit in points to trigger BE
+input double   BEOffsetPts    = 0;     // extra points past entry for stop
 
 // scale-out and breakeven settings
 input bool     EnableScaleOut = true;    // enable partial profit taking
@@ -74,6 +80,9 @@ double lastLots=0.0;
 double lastSL=0.0;
 double lastTP=0.0;
 
+bool   beApplied=false;  // has breakeven been set
+
+
 bool  scaleOutDone=false;
 bool  breakEvenDone=false;
 
@@ -81,7 +90,6 @@ datetime lastBarTime=0;
 PivotZigZag zz;
 double synergyScore=0.0;
 datetime lastBarTime=0;
-
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -143,6 +151,11 @@ void OnTick()
 
    //--- update dashboard
    DashboardOnTick();
+
+   //--- check if we have an open position
+   hasPosition=(PositionSelect(_Symbol));
+   if(!hasPosition)
+      beApplied=false;
 
    //--- detect new bar for zigzag drawing
    datetime currentBar=Time[0];
@@ -245,6 +258,7 @@ void OnTick()
 
    if(!hasPosition)
      {
+
       //--- open position if condition met
       double sl,tp;  
       if(longCondition)
@@ -257,12 +271,14 @@ void OnTick()
            {
             lastLots=lots; lastSL=sl; lastTP=tp;
 
+            beApplied=false;
             SendHedgeSignal("SELL",lots*HedgeFactor,sl,tp);
 
            }
         }
       else if(shortCondition)
         {
+
 
          sl=FindHighestPivotHighAboveClose(PivotLookback,PivotLeft,PivotRight);
          tp=FindDeepestPivotLowBelowClose(PivotLookback,PivotLeft,PivotRight);
@@ -278,6 +294,7 @@ void OnTick()
               }
 
 
+
          sl=SymbolInfoDouble(_Symbol,SYMBOL_ASK)+100*_Point;
          tp=SymbolInfoDouble(_Symbol,SYMBOL_ASK)-200*_Point;
          double lots=CalcLots(100);
@@ -285,11 +302,12 @@ void OnTick()
            {
             lastLots=lots; lastSL=sl; lastTP=tp;
 
-            scaleOutDone=false;
-            breakEvenDone=false;
+            beApplied=false;
             SendHedgeSignal("BUY",lots*HedgeFactor,sl,tp);
 
 
+            scaleOutDone=false;
+            breakEvenDone=false;
 
            }
         }
@@ -344,12 +362,32 @@ void OnTick()
           }
        }
 
+
       //--- manage trailing stop to breakeven
       ulong ticket=PositionGetTicket(0);
       double entry=PositionGetDouble(POSITION_PRICE_OPEN);
       double profit_in_points=(SymbolInfoDouble(_Symbol,SYMBOL_BID)-entry)/_Point;
       if(PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_SELL)
          profit_in_points=(entry-SymbolInfoDouble(_Symbol,SYMBOL_ASK))/_Point;
+
+      if(UseBreakEven && !beApplied && profit_in_points>=BETriggerPts)
+        {
+         double newSL=entry;
+         if(PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY)
+            newSL=entry+BEOffsetPts*_Point;
+         else
+            newSL=entry-BEOffsetPts*_Point;
+         if(newSL!=lastSL)
+           {
+            if(trade.PositionModify(ticket,newSL,lastTP))
+              {
+               lastSL=newSL;
+               beApplied=true;
+               SendHedgeSignal("ADJ",lastLots,newSL,lastTP);
+              }
+           }
+        }
+
       if(profit_in_points>100)
         {
          double newSL=entry;
@@ -360,6 +398,7 @@ void OnTick()
             SendHedgeSignal("ADJ",lastLots,newSL,lastTP);
            }
         }
+
 
      }
   }
