@@ -12,6 +12,7 @@
 #include <Trade/Trade.mqh>
 #include <Files/File.mqh>
 #include <Dashboard.mqh>
+
 #include <Synergy.mqh>
 #include <MarketBias.mqh>
 #include <ADXFilter.mqh>
@@ -24,6 +25,7 @@ input double   FixedLot       = 1.0;   // fixed lot size when RiskPercent=0
 input bool     UseRiskPercent = true;  // use risk percent or fixed lot
 input double   HedgeFactor    = 1.0;   // hedge lot multiplier
 input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
+
 
 // Synergy inputs
 input bool   UseSynergyScore = true;
@@ -52,13 +54,15 @@ input int    ADXLookback       = 20;
 input double ADXMultiplier     = 0.8;
 input double ADXMinThreshold   = 15.0;
 
-
-
 //--- global variables
 bool hasPosition=false;
 double lastLots=0.0;
 double lastSL=0.0;
 double lastTP=0.0;
+
+double synergyScore=0.0;
+datetime lastBarTime=0;
+
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -114,6 +118,7 @@ void SendHedgeSignal(string direction,double lots,double sl,double tp)
 //+------------------------------------------------------------------+
 void OnTick()
   {
+
    //--- update dashboard
    DashboardOnTick();
 
@@ -139,6 +144,36 @@ void OnTick()
    bool shortCondition = adxOk &&
                          (!UseSynergyScore || synergy<0) &&
                          (!UseMarketBias || bear);
+
+
+  //--- update dashboard
+  DashboardOnTick(synergyScore);
+
+  //--- calculate synergy score on new bar
+  datetime curBar=iTime(_Symbol,_Period,0);
+  if(curBar!=lastBarTime)
+    {
+     synergyScore=CalcSynergyScore(UseTF5M,UseTF15M,UseTF1H,
+                                   WeightM5,WeightM15,WeightH1,
+                                   RsiWeight,TrendWeight,MacdSlopeWeight);
+     lastBarTime=curBar;
+    }
+
+  //--- check if we have an open position
+  hasPosition=(PositionSelect(_Symbol));
+
+  //--- compute signals
+  double fast=iMA(_Symbol,_Period,50,0,MODE_EMA,PRICE_CLOSE,0);
+  double slow=iMA(_Symbol,_Period,200,0,MODE_EMA,PRICE_CLOSE,0);
+  bool longCondition=(fast>slow);
+  bool shortCondition=(fast<slow);
+  if(UseSynergyScore)
+    {
+     longCondition=longCondition && synergyScore>0.0;
+     shortCondition=shortCondition && synergyScore<0.0;
+    }
+
+
 
    if(!hasPosition)
      {
