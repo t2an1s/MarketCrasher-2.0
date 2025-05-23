@@ -9,8 +9,13 @@ Two EAs are provided:
 
 A dashboard implementation is available in `MQL5/Include/Dashboard.mqh`.
 
+Additional modules provide the multi-timeframe synergy score, market bias
+oscillator and ADX filter used by the strategy.
+
+
 Synergy score logic from the TradingView script is implemented in
 `MQL5/Include/Synergy.mqh` and used by the MasterEA to filter trades.
+
 
 ## Usage
 1. Place the files inside your terminal's `MQL5` directory preserving the folder structure.

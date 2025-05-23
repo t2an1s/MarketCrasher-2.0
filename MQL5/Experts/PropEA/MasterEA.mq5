@@ -14,8 +14,8 @@
 #include <Dashboard.mqh>
 
 #include <Synergy.mqh>
-
-
+#include <MarketBias.mqh>
+#include <ADXFilter.mqh>
 
 CTrade      trade;
 
@@ -27,20 +27,32 @@ input double   HedgeFactor    = 1.0;   // hedge lot multiplier
 input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
 
 
-//--- synergy settings
-input bool     UseSynergyScore = true;   // enable synergy filter
-input double   RsiWeight       = 1.0;    // RSI contribution
-input double   TrendWeight     = 1.0;    // MA trend contribution
-input double   MacdSlopeWeight = 1.0;    // MACD slope contribution
-input bool     UseTF5M         = true;   // use 5 minute timeframe
-input double   WeightM5        = 1.0;    // weight for 5m
-input bool     UseTF15M        = true;   // use 15 minute timeframe
-input double   WeightM15       = 1.0;    // weight for 15m
-input bool     UseTF1H         = true;   // use 1 hour timeframe
-input double   WeightH1        = 1.0;    // weight for 1h
+// Synergy inputs
+input bool   UseSynergyScore = true;
+input double RsiWeight       = 1.0;
+input double TrendWeight     = 1.0;
+input double MacdSlopeWeight = 1.0;
+input bool   UseTF5m         = true;
+input double WeightM5        = 1.0;
+input bool   UseTF15m        = true;
+input double WeightM15       = 1.0;
+input bool   UseTF1h         = true;
+input double WeightH1        = 1.0;
 
+// Market bias inputs
+input bool   UseMarketBias   = true;
+input ENUM_TIMEFRAMES BiasTimeframe = PERIOD_H1;
+input int    BiasHALen       = 100;
+input int    BiasOscLen      = 7;
 
-
+// ADX filter inputs
+input bool   EnableADXFilter   = true;
+input int    ADXPeriod         = 14;
+input bool   UseDynamicADX     = true;
+input double StaticADXThreshold= 25.0;
+input int    ADXLookback       = 20;
+input double ADXMultiplier     = 0.8;
+input double ADXMinThreshold   = 15.0;
 
 //--- global variables
 bool hasPosition=false;
@@ -107,6 +119,33 @@ void SendHedgeSignal(string direction,double lots,double sl,double tp)
 void OnTick()
   {
 
+   //--- update dashboard
+   DashboardOnTick();
+
+   //--- check if we have an open position
+   hasPosition=(PositionSelect(_Symbol));
+
+   //--- compute synergy, market bias and adx filter
+   double synergy=CalcSynergyScore(RsiWeight,TrendWeight,MacdSlopeWeight,
+                                   UseTF5m,WeightM5,UseTF15m,WeightM15,
+                                   UseTF1h,WeightH1);
+   dashboard.SetSynergy(synergy);
+
+   bool bull=false,bear=false;
+   double osc=MarketBiasOsc(BiasTimeframe,BiasHALen,BiasOscLen,bull,bear);
+   dashboard.SetBias(bull?"Bullish":bear?"Bearish":"");
+
+   bool adxOk=ADXTrendOk(ADXPeriod,UseDynamicADX,StaticADXThreshold,
+                          ADXLookback,ADXMultiplier,ADXMinThreshold);
+
+   bool longCondition = adxOk &&
+                        (!UseSynergyScore || synergy>0) &&
+                        (!UseMarketBias || bull);
+   bool shortCondition = adxOk &&
+                         (!UseSynergyScore || synergy<0) &&
+                         (!UseMarketBias || bear);
+
+
   //--- update dashboard
   DashboardOnTick(synergyScore);
 
@@ -133,6 +172,7 @@ void OnTick()
      longCondition=longCondition && synergyScore>0.0;
      shortCondition=shortCondition && synergyScore<0.0;
     }
+
 
 
    if(!hasPosition)
