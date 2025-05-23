@@ -25,7 +25,16 @@ Synergy score logic from the TradingView script is implemented in
 
 ## Usage
 1. Place the files inside your terminal's `MQL5` directory preserving the folder structure.
-2. Compile `MQL5/Experts/PropEA/MasterEA.mq5` and `MQL5/Experts/PropEA/SlaveEA.mq5` in MetaEditor.
+2. Compile `MQL5/Experts/PropEA/MasterEA.mq5` and `MQL5/Experts/PropEA/SlaveEA.mq5` in MetaEditor or run the helper script:
+
+   ```sh
+   METATRADER_PATH=/Applications ./scripts/compile.sh
+
+   # or pass the path as an argument
+   ./scripts/compile.sh /Applications
+   ```
+   The path should point to the folder containing `metaeditor64.exe` from your MetaTrader 5 installation.
+   On macOS the default installation is usually under `/Applications`.
 3. Attach `MasterEA` to the prop account chart and `SlaveEA` to the hedge account chart.
 
 Adjust the input parameters of both EAs to match your desired risk and strategy settings.
