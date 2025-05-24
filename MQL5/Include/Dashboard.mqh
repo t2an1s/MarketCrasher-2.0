@@ -11,7 +11,8 @@ private:
 
    double synergy_val;
    string bias_txt;
-   
+ 
+
 
 
 public:
@@ -20,6 +21,10 @@ public:
       chart_id=ChartID();
 
       y=20;
+=======
+
+      y=20;
+
 
       ObjectCreate(chart_id,"dash_bg",OBJ_LABEL,0,0,0);
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_CORNER,0);
@@ -32,6 +37,11 @@ public:
      {
       // additional stats can be drawn here
      }
+
+   void Shutdown()
+     {
+      ObjectDelete(chart_id,"dash_bg");
+=======
 
    void SetSynergy(double val)
      {
@@ -68,6 +78,7 @@ public:
       ObjectDelete(chart_id,"bias_label");
 
 
+
      }
   };
 
@@ -82,6 +93,7 @@ void DashboardOnTick()
   {
    dashboard.Update();
 
+=======
   }
 
 
@@ -89,5 +101,4 @@ void DashboardShutdown()
   {
    dashboard.Shutdown();
   }
-
 //+------------------------------------------------------------------+

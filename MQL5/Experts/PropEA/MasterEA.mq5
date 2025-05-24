@@ -1,4 +1,4 @@
-  //+------------------------------------------------------------------+
+
 //|                                                    MasterEA.mq5 |
 //|       Ported from TradingView strategy                          |
 //|                                                                  |
@@ -11,7 +11,6 @@
 
 #include <Trade/Trade.mqh>
 #include <Files/File.mqh>
-
 
 
 #include <Dashboard.mqh>
@@ -30,16 +29,32 @@ input double   RiskPercent    = 0.3;   // risk per trade in percent
 input double   FixedLot       = 1.0;   // fixed lot size when RiskPercent=0
 input bool     UseRiskPercent = true;  // use risk percent or fixed lot
 
+input double   HedgeFactor    = 1.0;   // hedge lot multiplier
 input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
+
+//--- synergy inputs
+input bool     UseSynergy     = true;   // enable multi-timeframe synergy filter
+input double   RSIWeight      = 1.0;    // RSI contribution
+input double   TrendWeight    = 1.0;    // EMA trend contribution
+input double   MacdSlopeWeight= 1.0;    // MACD slope contribution
+input bool     UseTF5m        = true;   // use 5 minute timeframe
+input bool     UseTF15m       = true;   // use 15 minute timeframe
+input bool     UseTF1h        = true;   // use 1 hour timeframe
+input double   Weight5m       = 1.0;    // weight for 5m timeframe
+input double   Weight15m      = 1.0;    // weight for 15m timeframe
+input double   Weight1h       = 1.0;    // weight for 1h timeframe
+
+//--- pivot inputs
+input int      PivotLookback  = 50;     // lookback bars for pivot SL/TP
+input int      PivotLeft      = 6;      // pivot length left
+input int      PivotRight     = 6;      // pivot length right
+input bool     DrawZigZag     = true;   // draw zigzag between pivots
+
 input double   ChallengeFee   = 700;  // challenge fee (C)
 input double   MaxDD          = 4000; // max drawdown (M)
 input double   SlipBuffer     = 0.10; // slip buffer
 input double   DailyDDCap     = 1700; // daily drawdown cap
 input double   StageTarget    = 1000; // stage target for bleed
-
-=======
-input double   HedgeFactor    = 1.0;   // hedge lot multiplier
-input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
 
 
 //--- trading session inputs (HHMM-HHMM)
@@ -125,6 +140,9 @@ double lastLots=0.0;
 double lastSL=0.0;
 double lastTP=0.0;
 
+SynergySettings syn;
+PivotSettings   piv;
+
 
 double lastHedgeLots=0.0;
 CHedgeEngine hedge;
@@ -148,6 +166,23 @@ int OnInit()
   {
    DashboardInit();
 
+   syn.useSynergy=UseSynergy;
+   syn.rsiWeight=RSIWeight;
+   syn.trendWeight=TrendWeight;
+   syn.macdSlopeWeight=MacdSlopeWeight;
+   syn.useTF5m=UseTF5m;
+   syn.useTF15m=UseTF15m;
+   syn.useTF1h=UseTF1h;
+   syn.weight5m=Weight5m;
+   syn.weight15m=Weight15m;
+   syn.weight1h=Weight1h;
+
+   piv.lookback=PivotLookback;
+   piv.leftLen=PivotLeft;
+   piv.rightLen=PivotRight;
+   piv.drawZigZag=DrawZigZag;
+
+
 
    hedge.Init(SignalFile,ChallengeFee,MaxDD,SlipBuffer,StageTarget,DailyDDCap);
 
@@ -155,6 +190,7 @@ int OnInit()
 
    zz.Init(DrawZigZag);
    
+
 
    return(INIT_SUCCEEDED);
   }
@@ -185,8 +221,6 @@ double CalcLots(double sl_points)
    return(NormalizeDouble(lots,2));
   }
 
-
-=======
 //+------------------------------------------------------------------+
 //| Send hedge instruction to file                                    |
 //+------------------------------------------------------------------+
@@ -200,7 +234,6 @@ void SendHedgeSignal(string direction,double lots,double sl,double tp)
       FileClose(file);
      }
   }
-
 
 //+------------------------------------------------------------------+
 
@@ -277,11 +310,43 @@ bool ADXTrendOk()
    return(adx>threshold);
   }
 
+
 //+------------------------------------------------------------------+
 //| Expert tick function                                              |
 //+------------------------------------------------------------------+
 void OnTick()
   {
+
+   //--- update dashboard
+   DashboardOnTick();
+
+   //--- check if we have an open position
+   hasPosition=(PositionSelect(_Symbol));
+   //--- compute synergy score
+   double synScore=CalcSynergyScore(syn);
+
+   //--- find pivots for SL/TP
+   int shift1,shift2;
+   double slLong=FindPivotLowBelowClose(piv,shift1);
+   double tpLong=FindPivotHighAboveClose(piv,shift2);
+   UpdateZigZag(false,shift1,piv);
+   UpdateZigZag(true,shift2,piv);
+
+   int shift3,shift4;
+   double slShort=FindPivotHighAboveClose(piv,shift3);
+   double tpShort=FindPivotLowBelowClose(piv,shift4);
+   UpdateZigZag(true,shift3,piv);
+   UpdateZigZag(false,shift4,piv);
+
+   bool longCondition=(syn.useSynergy?synScore>0:true) &&
+                      slLong!=EMPTY_VALUE && tpLong!=EMPTY_VALUE &&
+                      slLong<SymbolInfoDouble(_Symbol,SYMBOL_BID) && tpLong>SymbolInfoDouble(_Symbol,SYMBOL_BID);
+   bool shortCondition=(syn.useSynergy?synScore<0:true) &&
+                      slShort!=EMPTY_VALUE && tpShort!=EMPTY_VALUE &&
+                      slShort>SymbolInfoDouble(_Symbol,SYMBOL_ASK) && tpShort<SymbolInfoDouble(_Symbol,SYMBOL_ASK);
+
+   if(!hasPosition)
+     {
   //--- update dashboard
   DashboardOnTick();
 
@@ -328,25 +393,19 @@ void OnTick()
 
 
 
+
       //--- open position if condition met
       double sl,tp;
       if(longCondition)
         {
-      //--- open position if condition met using pivot-based SL/TP
-      double sl,tp;
-      if(longCondition)
-        {
-         sl=FindDeepestPivotLowBelowClose(PivotLookback,PivotLeft,PivotRight);
-         tp=FindHighestPivotHighAboveClose(PivotLookback,PivotLeft,PivotRight);
-         if(sl!=EMPTY_VALUE && tp!=EMPTY_VALUE)
+
+         sl=slLong;
+         tp=tpLong;
+         double lots=CalcLots(MathAbs((SymbolInfoDouble(_Symbol,SYMBOL_BID)-sl)/_Point));
+         if(trade.Buy(lots,_Symbol,0,sl,tp))
            {
-            double entry=SymbolInfoDouble(_Symbol,SYMBOL_ASK);
-            double sl_points=(entry-sl)/_Point;
-            double lots=CalcLots(sl_points);
-            if(trade.Buy(lots,_Symbol,0,sl,tp))
-              {
-               lastLots=lots; lastSL=sl; lastTP=tp;
-               SendHedgeSignal("SELL",lots*HedgeFactor,sl,tp);
+            lastLots=lots; lastSL=sl; lastTP=tp;
+            SendHedgeSignal("SELL",lots*HedgeFactor,sl,tp);
               }
 
    //--- check if we have an open position
@@ -438,18 +497,14 @@ void OnTick()
         }
       else if(shortCondition)
         {
-        
-         sl=FindHighestPivotHighAboveClose(PivotLookback,PivotLeft,PivotRight);
-         tp=FindDeepestPivotLowBelowClose(PivotLookback,PivotLeft,PivotRight);
-         if(sl!=EMPTY_VALUE && tp!=EMPTY_VALUE)
+
+         sl=slShort;
+         tp=tpShort;
+         double lots=CalcLots(MathAbs((sl-SymbolInfoDouble(_Symbol,SYMBOL_ASK))/_Point));
+         if(trade.Sell(lots,_Symbol,0,sl,tp))
            {
-            double entry=SymbolInfoDouble(_Symbol,SYMBOL_BID);
-            double sl_points=(sl-entry)/_Point;
-            double lots=CalcLots(sl_points);
-            if(trade.Sell(lots,_Symbol,0,sl,tp))
-              {
-               lastLots=lots; lastSL=sl; lastTP=tp;
-               SendHedgeSignal("BUY",lots*HedgeFactor,sl,tp);
+            lastLots=lots; lastSL=sl; lastTP=tp;
+            SendHedgeSignal("BUY",lots*HedgeFactor,sl,tp);
               }
 
 
@@ -480,11 +535,6 @@ void OnTick()
      }
    else
      {
-
-
-
-
-
 
      ulong ticket=PositionGetTicket(0);
      int type=PositionGetInteger(POSITION_TYPE);
@@ -540,6 +590,7 @@ void OnTick()
       double profit_in_points=(SymbolInfoDouble(_Symbol,SYMBOL_BID)-entry)/_Point;
       if(PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_SELL)
          profit_in_points=(entry-SymbolInfoDouble(_Symbol,SYMBOL_ASK))/_Point;
+
       if(UseBreakEven && !beApplied && profit_in_points>=BETriggerPts)
         {
          double newSL=entry;
@@ -573,14 +624,9 @@ void OnTick()
       }
 
    hedge.CheckBleed(AccountInfoDouble(ACCOUNT_PROFIT),lastHedgeLots);
-=======
+
+
             trade.PositionModify(ticket,newSL,lastTP);
             lastSL=newSL;
             SendHedgeSignal("ADJ",lastLots,newSL,lastTP);
            }
-        }
-     }
-
-  }
-
-
