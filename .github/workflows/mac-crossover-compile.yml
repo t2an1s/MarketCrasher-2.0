@@ -4,23 +4,31 @@ on:
   workflow_dispatch:
     inputs:
       files:
-        description: 'MQ5 glob (blank = every .mq5)'
+        description: 'Glob of MQ5 files (blank = repo-wide)'
         required: false
         default: ''
 
 jobs:
   build:
-    runs-on: [self-hosted, macOS]
+    runs-on: [self-hosted, macOS]         # your ARM64 runner
 
     steps:
       - uses: actions/checkout@v4
 
       - name: 🔨 Compile via CrossOver
-        run: ./compile_all.sh "${{ github.event.inputs.files }}"
+        run: |
+          chmod +x compile_all.sh
+          # pass the optional glob from the “Run workflow” form
+          if [[ -n "${{ github.event.inputs.files }}" ]]; then
+            ./compile_all.sh ${{ github.event.inputs.files }}
+          else
+            ./compile_all.sh
+          fi
+        shell: bash
 
-      - name: 📦 upload logs
+      - name: 📦 upload logs  (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mq5-logs
-          path: '**/*.log'
+          path: build_logs/**/*.log
