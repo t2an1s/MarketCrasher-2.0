@@ -1,54 +1,56 @@
-name: Local Mac – MT5 compile          # shows in the Actions list
+#!/usr/bin/env bash
+# Portable: works on macOS Bash 3.2 and Linux Bash 5+
+set -u           # NO 'set -e' so we don't abort on first failure
+shopt -s nullglob
 
-on:
-  workflow_dispatch:                   # manual “Run workflow” button
-    inputs:                            # (optional) compile subset of files
-      files:
-        description: 'Glob of MQ5 files (blank = *.mq5)'
-        required: false
-        default: ''
+CX="/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/cxstart"
+BOT="MT5"
+EXE="C:/Program Files/MetaTrader 5/metaeditor64.exe"
+INC="/include:\"$PWD/MQL5/Include\""      # <─ add more /include:"…" if needed
 
-jobs:
-  build:
-    # labels must match your runner;  macOS is automatic, self-hosted is default
-    runs-on: [self-hosted, macOS]
+##########################################
+# 1. Decide what to compile
+##########################################
+if [[ $# -gt 0 && -n "$1" ]]; then
+  FILES=( "$@" )                          # glob passed from workflow input
+else
+  # default: every .mq5 anywhere in repo
+  mapfile -t FILES < <(find . -type f -name '*.mq5' | sort)
+fi
 
-    steps:
-      - name: ⬇️  Checkout repo
-        uses: actions/checkout@v4
+[[ ${#FILES[@]} -gt 0 ]] || { echo "❌ No MQ5 files found"; exit 1; }
 
-      - name: 🛠️  Compile MQ5 inside CrossOver
-        shell: bash
-        run: |
-          CX="/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/cxstart"
-          BOT="MT5"
-          EXE="C:/Program Files/MetaTrader 5/metaeditor64.exe"
+##########################################
+# 2. Compile loop (never abort early)
+##########################################
+status=0      # 0 = all good; 1 = any file had errors
+summary=$(mktemp)
 
-          # decide which files to build
-          shopt -s nullglob
-          FILES="${{ github.event.inputs.files }}"
-          [[ -z "$FILES" ]] && FILES="*.mq5"
+for src in "${FILES[@]}"; do
+  log="${src%.mq5}.log"
+  echo "→ Compiling $src"
+  "$CX" --bottle "$BOT" --wait -- \
+        "$EXE" $INC /compile:"$PWD/$src" /log:"$PWD/$log" || true
 
-          echo "Files to compile: $FILES"
-          status=0
+  # count errors MetaEditor reports
+  errs=$(grep -Eo '([0-9]+) error\(s\)' "$log" | awk '{s+=$1} END{print s+0}')
+  printf "%-70s | %3d\n" "$src" "$errs" >> "$summary"
+  [[ $errs -eq 0 ]] || status=1
+done
 
-          for src in $FILES; do
-            log="${src%.mq5}.log"
-            echo "::group::Compiling $src"
-            "$CX" --bottle "$BOT" --wait -- \
-                  "$EXE" /compile:"$PWD/$src" /log:"$PWD/$log" || status=$?
-            cat "$log"                            # show compiler output
-            echo "::endgroup::"
+##########################################
+# 3. Print summary
+##########################################
+echo -e "\n================ Build summary ================"
+printf "%-70s | %s\n" "file" "errors"
+printf -- "--------------------------------------------------------------------+-------\n"
+cat "$summary"
+printf -- "--------------------------------------------------------------------+-------\n"
 
-            # fail the job if MetaEditor found errors
-            grep -q "0 error" "$log" || status=1
-          done
+if [[ $status -eq 0 ]]; then
+  echo "✅ All MQ5 sources compiled successfully."
+else
+  echo "❌ One or more sources failed – check logs above."
+fi
 
-          exit $status
-
-      - name: 📦 Upload .log files (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mq5-logs
-          path: '*.log'
+exit $status
