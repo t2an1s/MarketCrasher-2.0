@@ -1,0 +1,29 @@
+name: Linux – MT5 compile (CI)
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. one-time Wine + MT5 setup
+      - name: 🏗️  Prepare Wine & MetaEditor
+        run: bash ./ci-setup.sh
+
+      # 2. compile every EA with Wine
+      - name: 🔨 Compile via Wine MetaEditor
+        env:
+          CX: ""                           # disable CrossOver detection
+        run: |
+          chmod +x compile_all.sh
+          ./compile_all.sh
+
+      - name: 📦 upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mq5-logs
+          path: build_logs/**/*.log
