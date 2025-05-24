@@ -15,7 +15,6 @@ You are granted access to create Pull Request as soon as you complete the task, 
 IMPORTANT ----> Code that you deliver must be error/warning-free.
 
 ## Tasks
-- Provide a compile helper script `scripts/compile.sh` that uses MetaEditor to
-  compile both experts. The script defaults to `/Applications` for macOS users
-  and accepts a custom path via the `METATRADER_PATH` variable or command-line
-  argument.
+
+
+- Compile the EAs using `scripts/compile.sh`. Provide the MetaTrader installation path via the `METATRADER_PATH` environment variable or as a command-line argument. If omitted, the script assumes `/Applications`.

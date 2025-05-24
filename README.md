@@ -22,6 +22,24 @@ Adjust the input parameters of both EAs to match your desired risk and strategy 
 Important hedge settings such as challenge fee, drawdown caps and stage
 target can be configured in `MasterEA` inputs.
 
+The Master EA also supports optional trading sessions, a Heikin-Ashi market
+bias filter and an ADX trend filter. Adjust these inputs to mirror the
+TradingView strategy.
+
+## Usage
+1. Place the files inside your terminal's `MQL5` directory preserving the folder structure.
+2. Compile `MQL5/Experts/PropEA/MasterEA.mq5` and `MQL5/Experts/PropEA/SlaveEA.mq5` in MetaEditor.
+3. Attach `MasterEA` to the prop account chart and `SlaveEA` to the hedge account chart.
+
+Adjust the input parameters of both EAs to match your desired risk and strategy settings.
+
+The master EA provides optional breakeven management via the following inputs:
+
+- `UseBreakEven` – enable or disable the breakeven move.
+- `BETriggerPts` – profit in points required before the stop is moved to entry.
+- `BEOffsetPts` – additional points beyond entry for the new stop.
+
+
 The Master EA now includes optional **scale-out** logic allowing partial profit
 taking and breakeven management.
 
@@ -39,14 +57,14 @@ Synergy score logic from the TradingView script is implemented in
 1. Place the files inside your terminal's `MQL5` directory preserving the folder structure.
 2. Compile `MQL5/Experts/PropEA/MasterEA.mq5` and `MQL5/Experts/PropEA/SlaveEA.mq5` in MetaEditor or run the helper script:
 
-   ```sh
-   METATRADER_PATH=/Applications ./scripts/compile.sh
+   METATRADER_PATH=/path/to/MetaTrader5 ./scripts/compile.sh
 
    # or pass the path as an argument
-   ./scripts/compile.sh /Applications
-   ```
-   The path should point to the folder containing `metaeditor64.exe` from your MetaTrader 5 installation.
-   On macOS the default installation is usually under `/Applications`.
+   ./scripts/compile.sh /path/to/MetaTrader5
+
+   The path should point to the folder containing `metaeditor64.exe` from your MetaTrader 5 installation. If no path is provided, the script defaults to `/Applications` which is the typical location on macOS.
+
+
 3. Attach `MasterEA` to the prop account chart and `SlaveEA` to the hedge account chart.
 
 Adjust the input parameters of both EAs to match your desired risk and strategy settings.

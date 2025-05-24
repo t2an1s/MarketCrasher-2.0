@@ -33,7 +33,6 @@ public:
       // additional stats can be drawn here
      }
 
-
    void SetSynergy(double val)
      {
       synergy_val=val;
@@ -85,7 +84,10 @@ void DashboardOnTick()
 
   }
 
+
 void DashboardShutdown()
   {
    dashboard.Shutdown();
   }
+
+//+------------------------------------------------------------------+

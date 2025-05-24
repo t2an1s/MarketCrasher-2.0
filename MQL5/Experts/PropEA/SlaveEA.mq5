@@ -47,6 +47,7 @@ bool ParseSignal(string line,string &cmd,double &lots,double &sl,double &tp)
 
 void CheckSignals()
   {
+
   int file=FileOpen(SignalFile,FILE_READ|FILE_TXT|FILE_COMMON);
   if(file==INVALID_HANDLE) return;
   while(!FileIsEnding(file))
@@ -64,15 +65,19 @@ void CheckSignals()
            trade.PositionModify(PositionGetTicket(0),sl,tp);
         else if(cmd=="BLEED" && PositionSelect(_Symbol))
            trade.PositionClosePartial(PositionGetTicket(0),lots);
-       }
-    }
-  FileClose(file);
- }
+         else if(dir=="SO" && PositionSelect(_Symbol))
+            trade.PositionClosePartial(PositionGetTicket(0),lots);
+
+
+        }
+     }
+   FileClose(file);
+  }
+
 
 void OnTick()
   {
    DashboardOnTick();
-=======
    CheckSignals();
   }
 //+------------------------------------------------------------------+
