@@ -27,9 +27,8 @@ jobs:
       - name: Compile MQ5 via CrossOver
         shell: bash
         run: |
-          chmod +x compile_all.sh          # ensure script is executable
           ./compile_all.sh "${{ github.event.inputs.files }}"
-
+          
       # ▸ 2.3  Always upload all .log files (easier debug) ------------------------
       - name: Upload compile logs
         if: always()
