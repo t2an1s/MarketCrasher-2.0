@@ -1,27 +1,29 @@
-name: Linux – MT5 compile (CI)
+name: Linux - MT5 compile      # plain hyphen
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      files:
+        description: 'Glob of MQ5 files (blank = every .mq5)'
+        required: false
+        default: ''
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
 
-      # 1. one-time Wine + MT5 setup
-      - name: 🏗️  Prepare Wine & MetaEditor
-        run: bash ./ci-setup.sh
+      - name: 🏗️ Prepare Wine + MetaEditor
+        run: ./ci-setup.sh
 
-      # 2. compile every EA with Wine
       - name: 🔨 Compile via Wine MetaEditor
-        env:
-          CX: ""                           # disable CrossOver detection
         run: |
-          chmod +x compile_all.sh
-          ./compile_all.sh
+          ./compile_all.sh "${{ github.event.inputs.files }}"
 
-      - name: 📦 upload logs
+      - name: 📦 Upload logs (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
