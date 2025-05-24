@@ -58,6 +58,10 @@ for src in "${FILES[@]}"; do
 
   printf "%-60s | %3d | %3d\n" "$src" "$errs" "$warns" >> "$summary"
   [[ $errs -eq 0 ]] || status=1
+
+  echo "----- ERRORS in $log -----"
+  grep -iE ': (fatal )?error ' "$log" || echo "<none>"
+  echo "----- end of errors -----"
   
   done
 
