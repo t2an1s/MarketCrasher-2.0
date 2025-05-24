@@ -1,4 +1,5 @@
 //+------------------------------------------------------------------+
+
 //| Synergy score calculation                                        |
 //+------------------------------------------------------------------+
 #ifndef __SYNERGY_MQH__
@@ -104,5 +105,6 @@ inline double CalcSynergyScore(const SynergySettings &s)
 
    return(score);
   }
+
 
 #endif // __SYNERGY_MQH__
