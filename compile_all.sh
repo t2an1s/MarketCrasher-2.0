@@ -58,12 +58,8 @@ for src in "${FILES[@]}"; do
 
   printf "%-60s | %3d | %3d\n" "$src" "$errs" "$warns" >> "$summary"
   [[ $errs -eq 0 ]] || status=1
-
-  # optional: show first 10 + final result line for quick glance
-  echo "----- head of $log -----"
-  head -n 10 "$log"
-  echo "----- $result_line -----"
-done
+  
+  done
 
 ##############################################################################
 # 3  Print summary & exit
