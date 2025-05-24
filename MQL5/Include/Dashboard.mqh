@@ -21,8 +21,6 @@ public:
 
       y=20;
 
-
-
       ObjectCreate(chart_id,"dash_bg",OBJ_LABEL,0,0,0);
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_CORNER,0);
       ObjectSetInteger(chart_id,"dash_bg",OBJPROP_XDISTANCE,10);
@@ -68,6 +66,7 @@ public:
       ObjectDelete(chart_id,"dash_bg");
       ObjectDelete(chart_id,"syn_label");
       ObjectDelete(chart_id,"bias_label");
+
 
      }
   };

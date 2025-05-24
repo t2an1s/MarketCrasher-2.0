@@ -15,10 +15,13 @@
 
 
 #include <Dashboard.mqh>
+#include <HedgeEngine.mqh>
+#include <Dashboard.mqh>
 #include <Pivot.mqh>
 #include <Synergy.mqh>
 #include <MarketBias.mqh>
 #include <ADXFilter.mqh>
+
 
 CTrade      trade;
 
@@ -26,6 +29,15 @@ CTrade      trade;
 input double   RiskPercent    = 0.3;   // risk per trade in percent
 input double   FixedLot       = 1.0;   // fixed lot size when RiskPercent=0
 input bool     UseRiskPercent = true;  // use risk percent or fixed lot
+
+input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
+input double   ChallengeFee   = 700;  // challenge fee (C)
+input double   MaxDD          = 4000; // max drawdown (M)
+input double   SlipBuffer     = 0.10; // slip buffer
+input double   DailyDDCap     = 1700; // daily drawdown cap
+input double   StageTarget    = 1000; // stage target for bleed
+
+=======
 input double   HedgeFactor    = 1.0;   // hedge lot multiplier
 input string   SignalFile     = "hedge_signal.txt"; // file for hedge instructions
 
@@ -113,7 +125,12 @@ double lastLots=0.0;
 double lastSL=0.0;
 double lastTP=0.0;
 
+
+double lastHedgeLots=0.0;
+CHedgeEngine hedge;
+
 bool   beApplied=false;  // has breakeven been set
+
 
 
 bool  scaleOutDone=false;
@@ -130,8 +147,15 @@ datetime lastBarTime=0;
 int OnInit()
   {
    DashboardInit();
+
+
+   hedge.Init(SignalFile,ChallengeFee,MaxDD,SlipBuffer,StageTarget,DailyDDCap);
+
+
+
    zz.Init(DrawZigZag);
    
+
    return(INIT_SUCCEEDED);
   }
 
@@ -161,6 +185,8 @@ double CalcLots(double sl_points)
    return(NormalizeDouble(lots,2));
   }
 
+
+=======
 //+------------------------------------------------------------------+
 //| Send hedge instruction to file                                    |
 //+------------------------------------------------------------------+
@@ -174,6 +200,7 @@ void SendHedgeSignal(string direction,double lots,double sl,double tp)
       FileClose(file);
      }
   }
+
 
 //+------------------------------------------------------------------+
 
@@ -261,10 +288,17 @@ void OnTick()
   if(!TradingAllowed() || !ADXTrendOk())
      return;
 
+
+   //--- update dashboard
+   DashboardOnTick();
+   hedge.UpdateDailyEquity();
+   
+
    //--- check if we have an open position
    hasPosition=(PositionSelect(_Symbol));
    if(!hasPosition)
       beApplied=false;
+
 
    //--- detect new bar for zigzag drawing
    datetime currentBar=Time[0];
@@ -279,6 +313,7 @@ void OnTick()
          zz.AddPoint(Time[PivotRight],pl);
      }
 
+
    //--- check if we have an open position
    hasPosition=(PositionSelect(_Symbol));
 
@@ -290,6 +325,8 @@ void OnTick()
 
    if(!hasPosition)
      {
+
+
 
       //--- open position if condition met
       double sl,tp;
@@ -374,25 +411,34 @@ void OnTick()
 
    if(!hasPosition)
      {
-
-
+     
       //--- open position if condition met
       double sl,tp;  
       if(longCondition)
         {
+
+
          sl=SymbolInfoDouble(_Symbol,SYMBOL_BID)-100*_Point;
          tp=SymbolInfoDouble(_Symbol,SYMBOL_BID)+200*_Point;
          double lots=CalcLots(100);
          if(trade.Buy(lots,_Symbol,0,sl,tp))
            {
             lastLots=lots; lastSL=sl; lastTP=tp;
+
+
+            lastHedgeLots=hedge.HedgeLots(lots);
+            if(!hedge.DailyDDExceeded())
+
             beApplied=false;
+
             SendHedgeSignal("SELL",lots*HedgeFactor,sl,tp);
+
 
            }
         }
       else if(shortCondition)
         {
+        
          sl=FindHighestPivotHighAboveClose(PivotLookback,PivotLeft,PivotRight);
          tp=FindDeepestPivotLowBelowClose(PivotLookback,PivotLeft,PivotRight);
          if(sl!=EMPTY_VALUE && tp!=EMPTY_VALUE)
@@ -415,12 +461,18 @@ void OnTick()
            {
             lastLots=lots; lastSL=sl; lastTP=tp;
 
-            beApplied=false;
-            SendHedgeSignal("BUY",lots*HedgeFactor,sl,tp);
+
+            lastHedgeLots=hedge.HedgeLots(lots);
+            if(!hedge.DailyDDExceeded())
+
 
 
             scaleOutDone=false;
             breakEvenDone=false;
+
+            beApplied=false;
+
+
 
 
            }
@@ -428,6 +480,12 @@ void OnTick()
      }
    else
      {
+
+
+
+
+
+
      ulong ticket=PositionGetTicket(0);
      int type=PositionGetInteger(POSITION_TYPE);
      double entry=PositionGetDouble(POSITION_PRICE_OPEN);
@@ -505,12 +563,24 @@ void OnTick()
          double newSL=entry;
          if(newSL!=lastSL)
            {
+
+           trade.PositionModify(ticket,newSL,lastTP);
+           lastSL=newSL;
+           if(!hedge.DailyDDExceeded())
+
+           }
+        }
+      }
+
+   hedge.CheckBleed(AccountInfoDouble(ACCOUNT_PROFIT),lastHedgeLots);
+=======
             trade.PositionModify(ticket,newSL,lastTP);
             lastSL=newSL;
             SendHedgeSignal("ADJ",lastLots,newSL,lastTP);
            }
         }
      }
+
   }
 
 
