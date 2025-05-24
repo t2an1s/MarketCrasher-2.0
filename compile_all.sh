@@ -1,83 +1,78 @@
 #!/usr/bin/env bash
-# ---------------------------------------------------------------------------
-# compile_all.sh
-# Portable compile script for MetaTrader 5 EAs inside CrossOver.
-#   • Never aborts early; keeps compiling the rest even when one fails
-#   • Bash-3.2 compatible (macOS stock shell)
-#   • Stores every compiler log in build_logs/
-#   • Prints err | warn table, exits 0 only when all EAs have zero errors
-# ---------------------------------------------------------------------------
+# compile_all.sh – MT5 CrossOver compiler (macOS Bash 3.2+ / Linux Bash 5+)
+# • never aborts after a single file error
+# • prints a Δ-free summary table (err / warn counters)
+# • shows a coloured excerpt of every error/warning line
+# • works no matter where you launch it from
+# --------------------------------------------------------------
 
-set -u                # NO '-e' → keep going after individual failures
-shopt -s nullglob
+set -u                      # *no* “-e” → keep looping even on errors
+shopt -s globstar nullglob
 
 CX="/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/cxstart"
 BOT="MT5"
 EXE="C:/Program Files/MetaTrader 5/metaeditor64.exe"
-INC="/include:\"$PWD/MQL5/Include\""        # add more /include:"…" if you need
+INC="/include:\"$PWD/MQL5/Include\""        # add more -I paths if you need
 
-LOG_DIR="build_logs"
-mkdir -p "$LOG_DIR"
+BUILD_DIR="build_logs"
+mkdir -p "$BUILD_DIR"
 
 ##############################################################################
-# 1  Decide which .mq5 files to compile
+# 1. decide which .mq5 to compile
 ##############################################################################
-FILES=()
-
-if [[ $# -gt 0 && -n "$1" ]]; then
-  FILES=( "$@" )                     # glob or list passed from workflow input
+if [[ $# -gt 0 && -n $1 ]]; then
+  # manual glob / list passed from the workflow input
+  FILES=( "$@" )
 else
-  while IFS= read -r -d '' f; do
-    FILES+=( "$f" )
-  done < <(find . -type f -name '*.mq5' -print0 | sort -z)
+  # repo-wide default
+  mapfile -t FILES < <(find . -type f -name '*.mq5' | sort)
 fi
 
-[[ ${#FILES[@]} -gt 0 ]] || { echo "❌ no MQ5 files found"; exit 1; }
+[[ ${#FILES[@]} -gt 0 ]] || { echo "❌ No MQ5 sources found"; exit 1; }
 
 ##############################################################################
-# 2  Compile loop
+# 2. compile loop
 ##############################################################################
 status=0
-summary=$(mktemp)
+summary="$(mktemp)"
+printf "%-70s | %s | %s\n" "file" "err" "warn" >>"$summary"
+printf -- "--------------------------------------------------------------------+-----+-----\n" >>"$summary"
+
+err_re=':[[:space:]]*(error|fatal)'
+warn_re=':[[:space:]]*warning'
 
 for src in "${FILES[@]}"; do
-  # one log per EA, slashes replaced with _
-  flat=${src//[\/ ]/_}
-  log="${LOG_DIR}/${flat}.log"
+  # flat log name:  ./MQL5/Experts/Ea.mq5 → MQL5_Experts_Ea.mq5.log
+  flat="${src#./}"
+  flat="${flat//[\/ ]/_}"
+  log="${BUILD_DIR}/${flat}.log"
 
   echo "::group::Compiling $src"
   "$CX" --bottle "$BOT" --wait -- \
         "$EXE" $INC /compile:"$PWD/$src" /log:"$PWD/$log" || true
+
+  # error / warning counters
+  errs=$(grep -c -i -E "$err_re"  "$log" || true)
+  warns=$(grep -c -i -E "$warn_re" "$log" || true)
+  printf "%-70s | %3d | %3d\n" "$src" "$errs" "$warns" >>"$summary"
+  (( errs == 0 )) || status=1
+
+  # show the first 40 offending lines (if any)
+  echo "----- first offending lines (${errs} err, ${warns} warn) in $(basename "$log") -----"
+  grep    -i -E "$err_re|$warn_re" "$log" | head -n 40 || echo "<none>"
+  echo "----- end excerpt -----"
   echo "::endgroup::"
-
-  # ---- read totals from MetaEditor "Result : N error(s), M warning(s)" line
-  result_line=$(grep -E 'Result[[:space:]]*:' "$log" | tail -n 1)
-  errs=$(echo "$result_line" | grep -Eo '[0-9]+ error'   | awk '{print $1+0}')
-  warns=$(echo "$result_line" | grep -Eo '[0-9]+ warning'| awk '{print $1+0}')
-  errs=${errs:-0}; warns=${warns:-0}
-
-  printf "%-60s | %3d | %3d\n" "$src" "$errs" "$warns" >> "$summary"
-  [[ $errs -eq 0 ]] || status=1
-
-  echo "----- ERRORS in $log -----"
-  grep -iE ': (fatal )?error ' "$log" || echo "<none>"
-  echo "----- end of errors -----"
-  
-  done
+done
 
 ##############################################################################
-# 3  Print summary & exit
+# 3. build summary
 ##############################################################################
-echo -e "\n================ build summary ============================="
-printf "%-60s | %s | %s\n" "file" "err" "warn"
-printf -- "------------------------------------------------------------+-----+-----\n"
+echo -e "\n================ build summary ==========================="
 cat "$summary"
-printf -- "------------------------------------------------------------+-----+-----\n"
+printf -- "--------------------------------------------------------------------+-----+-----\n"
 
-if [[ $status -eq 0 ]]; then
-  echo "✅ all sources compiled with 0 errors"
-else
-  echo "❌ one or more sources failed – see logs in $LOG_DIR/"
-fi
+(( status == 0 )) \
+  && echo "✅ All sources compiled *without* errors" \
+  || echo "❌ Errors were found – scroll up ⬆ or open the artefact zip"
 
 exit $status
