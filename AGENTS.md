@@ -17,4 +17,4 @@ IMPORTANT ----> Code that you deliver must be error/warning-free.
 ## Tasks
 
 
-- Compile the EAs using `scripts/compile.sh`. Provide the MetaTrader installation path via the `METATRADER_PATH` environment variable or as a command-line argument. If omitted, the script assumes `/Applications`.
+- Compile the EAs using: compile_all.sh
