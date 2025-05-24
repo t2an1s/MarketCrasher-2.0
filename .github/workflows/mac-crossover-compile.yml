@@ -16,11 +16,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: 🔨 Compile via CrossOver
-        run: |
+        run: ./compile_all.sh "${{ github.event.inputs.files }}"
           chmod +x compile_all.sh
-          # pass the optional glob from the “Run workflow” form
-          if [[ -n "${{ github.event.inputs.files }}" ]]; then
-            ./compile_all.sh ${{ github.event.inputs.files }}
+          
           else
             ./compile_all.sh
           fi
