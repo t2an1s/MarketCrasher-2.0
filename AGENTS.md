@@ -14,7 +14,9 @@ You are granted access to create Pull Request as soon as you complete the task, 
 
 IMPORTANT ----> Code that you deliver must be error/warning-free.
 
-## Tasks
 
+## Setup  <!-- Codex runs this block once per container boot -->
 
-- Compile the EAs using: compile_all.sh
+```bash
+# One-time provisioning of Wine + portable MetaTrader 5
+bash ./codex-setup.sh
