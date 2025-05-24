@@ -1,26 +1,22 @@
 #!/usr/bin/env bash
-# ---------------------------------------------------------------------------
-# compile_all.sh  –  Compile every .mq5 passed on the command line OR, if no
-# arguments, compile the default glob below.  Works on macOS Bash 3.2.
-# ---------------------------------------------------------------------------
 set -euo pipefail
 
 CX="/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/cxstart"
 BOT="MT5"
 EXE="C:/Program Files/MetaTrader 5/metaeditor64.exe"
 
-# -------- 1. Decide which MQ5 files to build -------------------------------
-if [[ $# -gt 0 && -n "$1" ]]; then
-  FILES=( "$@" )                           # glob / filenames from workflow input
+# ---------- choose files --------------------------------------------------
+if [[ $# -gt 0 && -n "$1" ]]; then           # passed from workflow input
+  FILES=( "$@" )
 else
-  FILES=( MQL5/Experts/PropEA/*.mq5 )      # <— DEFAULT GLOB -- adjust if needed
+  FILES=( MQL5/Experts/PropEA/*.mq5 )        # <-- adjust to your folder
 fi
 shopt -s nullglob
 [[ ${#FILES[@]} -gt 0 ]] || { echo "❌ No MQ5 files found"; exit 1; }
+# --------------------------------------------------------------------------
 
-# -------- 2. Compile loop ---------------------------------------------------
+declare -A ERRORS           # filename ➜ error count
 status=0
-summary_file=$(mktemp)     # collect per-file results here
 
 for src in "${FILES[@]}"; do
   log="${src%.mq5}.log"
@@ -29,20 +25,20 @@ for src in "${FILES[@]}"; do
   "$CX" --bottle "$BOT" --wait -- \
         "$EXE" /compile:"$PWD/$src" /log:"$PWD/$log"
 
-  # count errors reported by MetaEditor in this log
-  err_cnt=$(grep -Eo '([0-9]+) error\(s\)' "$log" \
-            | awk '{sum+=$1} END{print sum+0}')
+  # Count errors in the log
+  err_cnt=$(grep -Eo '([0-9]+) error\(s\)' "$log" | awk '{sum+=$1} END{print sum+0}')
+  ERRORS["$src"]=$err_cnt
 
-  printf "%-60s | %d\n" "$src" "$err_cnt" >> "$summary_file"
   [[ $err_cnt -eq 0 ]] || status=1
 done
 
-# -------- 3. Print summary --------------------------------------------------
-echo -e "\n================ Build summary ================"
-printf "%-60s | %s\n" "file" "errors"
-printf -- "--------------------------------------------------------------+--------\n"
-cat "$summary_file"
-printf -- "--------------------------------------------------------------+--------\n"
+echo -e "\n===== Build summary ====="
+printf "%-45s | %s\n" "file" "errors"
+printf -- "-----------------------------------------------+--------\n"
+for f in "${!ERRORS[@]}"; do
+  printf "%-45s | %d\n" "$f" "${ERRORS[$f]}"
+done
+printf -- "-----------------------------------------------+--------\n"
 
 if [[ $status -eq 0 ]]; then
   echo "✅ All MQ5 sources compiled successfully."
