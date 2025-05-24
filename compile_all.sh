@@ -11,13 +11,13 @@
 set -u                # NO '-e' → keep going after individual failures
 shopt -s nullglob
 
-CX="/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/cxstart"
-# if CX is empty (Linux runner) fall back to Wine
-if [[ -z "${CX}" ]]; then
-  CX="wine"
-  EXE="$METAEDITOR_EXE"            # exported by ci-setup.sh
-fi
-BOT="MT5"
+# ---- AUTOMATIC BACK-END SELECTION -----------------------------------------
+if [[ -z "${CX:-}" || ! -x "$CX" ]]; then
+# CrossOver not present → fall back to Wine + portable MT5
+CX="wine"
+  : "${METAEDITOR_EXE:?run ci-setup.sh first}"
+EXE="$(winepath -w "$METAEDITOR_EXE")"
+fiBOT="MT5"
 EXE="C:/Program Files/MetaTrader 5/metaeditor64.exe"
 INC="/include:\"$PWD/MQL5/Include\""        # add more /include:"…" if you need
 
