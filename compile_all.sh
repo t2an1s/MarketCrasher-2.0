@@ -1,66 +1,60 @@
 #!/usr/bin/env bash
-# compile_all.sh – portable; never aborts early; summary table
-# works on macOS Bash 3.2 and Linux Bash 5+
-
-set -u                    # NO “-e” → continue after individual file errors
+# compile_all.sh – Bash-3.2 compatible, counts real errors, keeps going
+set -u
 shopt -s nullglob
 
 CX="/Applications/CrossOver.app/Contents/SharedSupport/CrossOver/bin/cxstart"
 BOT="MT5"
 EXE="C:/Program Files/MetaTrader 5/metaeditor64.exe"
-INC="/include:\"$PWD/MQL5/Include\""          # adjust / add more if needed
+INC="/include:\"$PWD/MQL5/Include\""
+
+LOG_DIR="build_logs"            # <── all logs end up here
+mkdir -p "$LOG_DIR"
 
 ##############################################################################
-# 1. Decide which MQ5 files to compile
+# 1. pick files
 ##############################################################################
-FILES=()                                  # always initialise
-
+FILES=()
 if [[ $# -gt 0 && -n "$1" ]]; then
-  # Paths/glob passed from workflow input
   FILES=( "$@" )
 else
-  # Default: every .mq5 in the repo
-  while IFS= read -r -d '' f; do
-    FILES+=( "$f" )
-  done < <(find . -type f -name '*.mq5' -print0 | sort -z)
+  while IFS= read -r -d '' f; do FILES+=( "$f" ); done \
+    < <(find . -type f -name '*.mq5' -print0 | sort -z)
 fi
-
-if [[ ${#FILES[@]} -eq 0 ]]; then
-  echo "❌ No MQ5 files found to compile"
-  exit 1
-fi
+[[ ${#FILES[@]} -gt 0 ]] || { echo "❌ no MQ5 files"; exit 1; }
 
 ##############################################################################
-# 2. Compile loop
+# 2. compile loop
 ##############################################################################
 status=0
 summary=$(mktemp)
 
 for src in "${FILES[@]}"; do
-  log="${src%.mq5}.log"
-  mkdir -p "$(dirname "$log")"
+  log="${LOG_DIR}/${src//[\/ ]/_}.log"     # flatten path chars to _
+  echo "→ compiling $src   → $log"
 
-  echo "→ Compiling $src"
   "$CX" --bottle "$BOT" --wait -- \
         "$EXE" $INC /compile:"$PWD/$src" /log:"$PWD/$log" || true
 
-# count lines that contain ": error " or ": fatal "  (case-insensitive)
-  errs=$(grep -iE ': (error|fatal) ' "$log" | wc -l | tr -d ' ')
-  printf "%-70s | %3d\n" "$src" "$errs" >> "$summary"
+  # ‼️ count only genuine error lines (ignore the final 'Result: N error(s)')
+  errs=$(grep -iE ':\s+(fatal\s+)?error\s+' "$log" | wc -l | tr -d ' ')
+  warns=$(grep -iE ':\s+warning\s+'        "$log" | wc -l | tr -d ' ')
+  printf "%-60s | %3d | %3d\n" "$src" "$errs" "$warns" >> "$summary"
+
   [[ $errs -eq 0 ]] || status=1
 done
 
 ##############################################################################
-# 3. Summary
+# 3. summary
 ##############################################################################
-echo -e "\n================ Build summary ================"
-printf "%-70s | %s\n" "file" "errors"
-printf -- "--------------------------------------------------------------------+-----\n"
+echo -e "\n================ build summary ============================="
+printf "%-60s | %s | %s\n" "file" "err" "warn"
+printf -- "------------------------------------------------------------+-----+-----\n"
 cat "$summary"
-printf -- "--------------------------------------------------------------------+-----\n"
+printf -- "------------------------------------------------------------+-----+-----\n"
 
 [[ $status -eq 0 ]] \
-  && echo "✅ All MQ5 sources compiled successfully." \
-  || echo "❌ One or more sources failed – see logs above."
+  && echo "✅ all sources compiled with 0 errors" \
+  || echo "❌ one or more sources failed – see $LOG_DIR/*.log"
 
 exit $status
