@@ -44,7 +44,8 @@ for src in "${FILES[@]}"; do
   "$CX" --bottle "$BOT" --wait -- \
         "$EXE" $INC /compile:"$PWD/$src" /log:"$PWD/$log" || true
 
-  errs=$(grep -Eo '([0-9]+) error\(s\)' "$log" | awk '{s+=$1} END{print s+0}')
+# count lines that contain ": error " or ": fatal "  (case-insensitive)
+  errs=$(grep -iE ': (error|fatal) ' "$log" | wc -l | tr -d ' ')
   printf "%-70s | %3d\n" "$src" "$errs" >> "$summary"
   [[ $errs -eq 0 ]] || status=1
 done
